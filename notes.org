@@ -16,6 +16,7 @@ SLA?
   time, but no guarantees.
 + The same URI can be scheduled for the same time span.
 + No persistence to start with.
++ GET supported only
 
 ** Scheduler Ideas
 + Executor per delta
@@ -56,3 +57,5 @@ The use of filter is an O(n) operation, might be better to use a
 constant time removal of jobs.
 
 Duplicate uris (uris as keys?)
+
+Changing it up, jobs are represented as maps, no longer functions.

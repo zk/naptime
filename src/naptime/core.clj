@@ -1,35 +1,65 @@
 (ns naptime.core
+  (:require [clj-http.client :as http])
   (:import [java.util Timer TimerTask]))
 
-(defn- timer-task-proxy
+(defn timer-task-proxy
   "Creates a TimerTask that executes `f`."
   [f]
   (proxy [TimerTask] []
     (run []
-      (f))))
+      f)))
 
-(def *jobs* (atom {}))
+(def timer (Timer.))
 
-(defn add-job [jobs period f]
-  (assoc jobs period
-         (conj (get jobs period #{})
-               f)))
+(defn make-job [uri period]
+  {:uri uri
+   :period period})
+
+;; # CRUD Ops
+
+(defn add-job [jobs job]
+  (let [period (:period job)]
+    (assoc jobs period
+           (conj (get jobs period #{})
+                 job))))
+
+(defn remove-job [jobs job]
+  (let [period (:period job)]
+    (assoc jobs period
+           (disj (get jobs period #{})
+                 job))))
 
 (defn jobs-for [jobs period]
   (get jobs period))
 
-(add-job {} 1000 #(println "hi"))
+(def *jobs* (atom {}))
+
+(defn schedule! [jobs-atom job]
+  (swap! jobs-atom add-job job))
+
+(defn unschedule! [jobs-atom job]
+  (swap! jobs-atom remove-job job))
+
+(defn exec! [job]
+  (http/get (:uri job)))
 
 
-(defn schedule [jobs period f]
-  (swap! jobs add-job period f))
+(def *timers* (atom {}))
+
+(defn make-timer! [jobs-atom period]
+  (timer-task-proxy
+   (fn []
+     (doseq [job (get @jobs-atom period)]
+       (println "exec" job)
+       (exec! job)))))
+
+(defn add-timer! [timers jobs-atom period]
+  (let [existing (get timers period)]
+    (if existing
+      timers
+      (assoc timers (make-timer jobs-atom period)))))
 
 
-(def timer (Timer.))
-
-(.schedule timer (timer-task-proxy #(println "hi!!!!!!")) (long 1000))
-
-
-
-
-
+(schedule! *jobs* {:uri "http://google.com"
+                   :period 1000})
+(.run (make-timer! *jobs* 1000))
