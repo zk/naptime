@@ -1,0 +1,58 @@
+<2011-09-13 Tue 20:42>
+
+* High Level
++ Clojure web
++ Cron? (no fun)
++ java.util.Timer (wrapped)
+
+** Restrictions
++ The same URI can't be scheduled twice for the same period.
+
+
+SLA?
+
+* V1
++ Soft timing requirements, we'll do our best to schedule jobs on
+  time, but no guarantees.
++ The same URI can be scheduled for the same time span.
++ No persistence to start with.
+
+** Scheduler Ideas
++ Executor per delta
+  - {10000 #(run-10-second-period 10-second-period-jobs)}
+
+I'm not familiar with idiomatic ways to temporally scheule events in
+clojure / java (other than libraries).  However, some of the potential
+pitfalls I can see:
+
++ Thread starvation. 
+  - Through soft testing I've found that Heroku web processes are
+    capped somewhere between 20-80 threads.
+  - The most straightforward to spin off jobs on a constant time delta
+    would be to use agents.  However, I'll have to look into how to
+    cap agent thread pools.  This is also a source of skew:
+    + Say we've got 1 thread executing 10 jobs that take 1 second to run,
+      and these jobs are scheduled every 1 second (all of them). Using
+      agents would allow us to execute these requests in parallel, but
+      too many jobs at the same time would exhaust the thread pool and
+      skew job start times.
++ Error Propagation.
+  - Job execution should not be affected by the length of the run
+  jobs.
+
+** Resources
+
++ Network Sockets
++ Threads
++ Memory
+
+
+
+~~~~~~~~~
+
+Cancelation?
+
+The use of filter is an O(n) operation, might be better to use a
+constant time removal of jobs.
+
+Duplicate uris (uris as keys?)
