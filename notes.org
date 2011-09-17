@@ -1,22 +1,43 @@
 <2011-09-13 Tue 20:42>
 
+
+* Problem
+
+Scheduling as an HTTP service: Users can request via an HTTP service
+that jobs be scheduled for periodic execution. These jobs are
+themselves HTTP endpoints. Users can do normal CRUD operations on
+schedules - create schedules, list schedules, show schedule details,
+delete schedules.
+
+The requirements and scope are specifically vague - feel free to
+approach it however you'd like in terms of language, framework,
+(non)-persistence, depth, etc. It would be nice to see it deployed to
+Heroku/Cedar though (:
+
+The idea with the project is just to see how you approach the types of
+problems that we work on here at Heroku. Hopefully you find it fun as
+well. Don't feel like you need to spend too long on this - even doing
+a solid job on a small piece of it would be interesting to see. In
+fact I would suggest timeboxing yourself to a small amount of time for v1.
+
+
 * High Level
+
 + Clojure web
-+ Cron? (no fun)
++ Cron?
 + java.util.Timer (wrapped)
 
 ** Restrictions
-+ The same URI can't be scheduled twice for the same period.
-
-
-SLA?
++ The same URI can't be scheduled twice, even for different periods
+  - Scaling and thread management implications.
+   
++ SLA?
 
 * V1
 + Soft timing requirements, we'll do our best to schedule jobs on
   time, but no guarantees.
-+ The same URI can be scheduled for the same time span.
++ The same URI can be scheduled for different periods.
 + No persistence to start with.
-+ GET supported only
 
 ** Scheduler Ideas
 + Executor per delta
@@ -29,7 +50,7 @@ pitfalls I can see:
 + Thread starvation. 
   - Through soft testing I've found that Heroku web processes are
     capped somewhere between 20-80 threads.
-  - The most straightforward to spin off jobs on a constant time delta
+  - The most straightforward way to spin off jobs on a constant time delta
     would be to use agents.  However, I'll have to look into how to
     cap agent thread pools.  This is also a source of skew:
     + Say we've got 1 thread executing 10 jobs that take 1 second to run,
@@ -38,8 +59,11 @@ pitfalls I can see:
       too many jobs at the same time would exhaust the thread pool and
       skew job start times.
 + Error Propagation.
-  - Job execution should not be affected by the length of the run
-  jobs.
+  - Job execution start time should not be affected by the run time of
+    jobs.
+
+Timers use a single thread for running tasks, so need to spawn a
+thread to do the actual http call.
 
 ** Resources
 
@@ -47,6 +71,34 @@ pitfalls I can see:
 + Threads
 + Memory
 
+** Changes
+
+Initially, I was allowing the same endpoint for multiple periods, but
+this seems like it would just a source of confusion for end users.  
+
+Switch to ScheduledThreadPoolExecutor
+
+** Entry Points
+
+CRUD
+
+Read -- GET /<url>/<timeout>
+Create -- PUT /<url>/<timeout>
+Delete -- DELETE /<url>/<timeout>
+
+No need for update at this point, url + timeout is a unique entry.
+However, it seems like this is wrong conceptually.
+
+
+** Error Handling
++ How to handle errors?
++ Malformed URLS
++ 4xx / 5xx errors
+
+** Config
+min-period -- smallest allowable period
+max-period -- largest allowable period
+entpoint-timeout -- timeout for http endpoint requests (in ms).
 
 
 ~~~~~~~~~
@@ -59,3 +111,107 @@ constant time removal of jobs.
 Duplicate uris (uris as keys?)
 
 Changing it up, jobs are represented as maps, no longer functions.
+
+Auto cleanup of timers (removal if no jobs run)?
+
+** Urls
+
+/3000/http%3A%2F%2Fgoogle.com
+
+
+Thread tracking -- each URI represents one thread, so max of x URIs
+per server.
+
+Thread overhead: 
+Jetty 2
+Timer 1
+URLs  rest
+
+** Scaling Out Naptime
+Correct operation is the number one priority, jobs cannot go unworked(?).
+
+
+** Failure Scenarios
+*** Thread Starvations
++ (agents) 
+
+Could restrict period to a multiple of greater than the maximum http timeout,
+then the maximum number of URIs per period is equal to the maximum
+threads allowed by a heroku web process.
+
++ Jobs can only be scheduled in 5 second increments.
+  - Provides garunty (sp?!) around no thread errors and no jobs
+    starting way after scheduled time.
+
++ If you pass in a value that's not mod 5, it rounds up to the next mod
+5.
+
++ Double ended check, check central hash once for existence of URL, if
+  not found create.
+
++ Worker process actually does the checking.
+
++ Need a distributed hash with locking.
+
++ Workers have a polling loop and are responsible for knowing how
+  "full" they are.  So when they're full they don't pull any more urls
+  off the of the queue.
+
+Workers responsible for pulling work, need distributed locking hash.
+
+
+How to handle node failure?
+
+Ok, a lot churn here, but I think it's best to ditch the timer
+mechanism and go with a mongo-backed solution.
+
+Using mongo as the coordination mechanism will allow a cleaner,
+worker-focused implementation, meaning the rate at which work is
+consumed is as fast as the worker can consume work, where the
+knowledge of how much capacity the worker has is contained.
+
+Here's the new look:
+
+Workers will have a run loop.
+
+At the beginning of the run loop, the worker will check to see if it
+has any free threads to do http queries.
+
+If so, the worker will fetch-update from mongo where the last run time is
+greater than the job's period. The fetch-update will atomically update
+the last run time to the current time, so that two workers can't pull
+the same job.
+
+Next the worker will atomically increment a counter (used capacity),
+and execute the job.
+
+At the end of the run loop, the used capacity counter gets
+decremented.
+
+** Failure levers
++ Pulling smallest last-run-period delta gives you more correct
+  periodic execution (jobs where the delta is large don't get run when
+  you're over capacity)
++ Pulling largest last-run-period delta runs all jobs eventually, but
+  possible way off of what their period is.
+
+In a nutshell, are dropped jobs or late jobs better?
+
+With this method, errors do propagate, but I think that's ok for
+V1. Potential ways of handling this are:
++ tracking start time modulo period, and adjusting last execution time
+  to pare down drift.
++ tracking error delta and adjusting last execution time to pare down
+  drift.
+
+The nice thing about not caring about error is that eventually jobs
+will naturally be distributed into a steady state that minimizes this
+error.
+
+
+
+** Atomic Operations
+
++ schedule endpoint
++ unschedule endpoint
++ update last execution time

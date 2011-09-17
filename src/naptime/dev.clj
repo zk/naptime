@@ -1,8 +1,16 @@
 (ns naptime.dev
-  (:require [naptime.core :as core]
-            [nsfw.server :as server]))
+  (:require [naptime.web :as web]
+            [nsfw.server :as server]
+            [somnium.congomongo :as mon]))
 
-(defonce s (server/make (var core/entry-handler) :port 8080 :max-threads 20))
+(mon/mongo! :db :naptime)
+
+
+(defonce s (server/make (var web/routes) :port 8080 :max-threads 20))
+
+(server/restart s)
+
+
 
 
 

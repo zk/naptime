@@ -7,13 +7,37 @@
   [f]
   (proxy [TimerTask] []
     (run []
-      f)))
+      (f))))
 
-(def timer (Timer.))
-
-(defn make-job [uri period]
-  {:uri uri
+(defn make-job [endpoint period]
+  {:endpoint endpoint
    :period period})
+
+;; refactor vv
+
+(defn exec! [job]
+  #_(http/get (:endpoint job)))
+
+(defn on-run-timer [jobs-atom period]
+  (fn []
+    (doseq [job (get @jobs-atom period)]
+      (println "jobs" @jobs-atom)
+      (println "exec" job)
+      (exec! job))))
+
+(defn make-timer! [timer jobs-atom period]
+  (let [timer-task (timer-task-proxy (on-run-timer jobs-atom period))]
+    (.schedule timer timer-task (long 0) (long period))
+    timer-task))
+
+(defn add-timer! [timer timers-atom jobs-atom period]
+  (let [existing (get @timers-atom period)]
+    (if existing
+      @timers-atom
+      (swap! timers-atom
+             assoc
+             period
+             (make-timer! timer jobs-atom period)))))
 
 ;; # CRUD Ops
 
@@ -32,34 +56,18 @@
 (defn jobs-for [jobs period]
   (get jobs period))
 
-(def *jobs* (atom {}))
+(defn make-scheduler [timer timers-atom jobs-atom job]
+  (swap! jobs-atom add-job job)
+  (add-timer! timer timers-atom jobs-atom (:period job)))
 
-(defn schedule! [jobs-atom job]
-  (swap! jobs-atom add-job job))
-
-(defn unschedule! [jobs-atom job]
+(defn make-unscheduler [jobs-atom job]
   (swap! jobs-atom remove-job job))
 
-(defn exec! [job]
-  (http/get (:uri job)))
 
 
-(def *timers* (atom {}))
-
-(defn make-timer! [jobs-atom period]
-  (timer-task-proxy
-   (fn []
-     (doseq [job (get @jobs-atom period)]
-       (println "exec" job)
-       (exec! job)))))
-
-(defn add-timer! [timers jobs-atom period]
-  (let [existing (get timers period)]
-    (if existing
-      timers
-      (assoc timers (make-timer jobs-atom period)))))
 
 
-(schedule! *jobs* {:uri "http://google.com"
-                   :period 1000})
-(.run (make-timer! *jobs* 1000))
+
+
+
+
