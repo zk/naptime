@@ -2,45 +2,56 @@
   (:require [clj-http.client :as http]
             [somnium.congomongo :as mon]))
 
-(def query-js
-  "function() {
-var t = arguments[0];
-var res =  db.jobs.findOne({$where: \"(\" + t + \" - this['last-update']) > this.period\"});
-if(res) {
-  var lu = res['last-update'];
-  res['last-update'] = t;
-  db.jobs.save(res);
-  return [lu, res];
-}
+(defn fetch-and-lock-next-job! []
+  (mon/fetch-and-modify
+   :jobs
+   {:locked false
+    :next-update {:$lt (System/currentTimeMillis)}}
+   {:$set {:locked true}}
+   :sort {:next-update -1}
+   :upsert? false
+   :return-new? true))
 
-return null;
-}")
+(defn unlock-job! [job]
+  (mon/fetch-and-modify
+   :jobs
+   {:_id (:_id job)}
+   {:$set {:locked false}}
+   :upsert? false
+   :return-new? true))
 
-(defn next-job []
-  (let [res (mon/server-eval query-js (System/currentTimeMillis))]
-    (when res
-      [(long (first res))
-       (assoc (second res)
-         :last-update (long (:last-update (second res))))])))
+(defn with-next-job [f]
+  (let [job (fetch-and-lock-next-job!)]
+    (try
+      (f job)
+      (finally
+       (when job
+        (mon/update! :jobs
+                     {:_id (:_id job)}
+                     ;; change skew characteristics here
+                     {:$set {:next-update (+ (if (= 0 (:next-update job))
+                                               (System/currentTimeMillis)
+                                               (:next-update job))
+                                             (:period job))}})
+        (unlock-job! job))))))
 
 
 ;; refactor me!
 (defn run-loop! [used-capacity-atom max-capacity]
   (if (< @used-capacity-atom max-capacity)
-    (do (swap! used-capacity-atom inc)
-        (let [[prev-last-update job] (next-job)]
-          (try
-            (future
-              (try
-                (println "error delta:" (- (:last-update job)
-                                           (+ prev-last-update (:period job))))
-                (http/get (:endpoint job))
-                (finally
-                 (swap! used-capacity-atom dec))))
-            (catch Exception e
-              (println "set job last update back to" prev-last-update)))))))
-
+    (do
+      (swap! used-capacity-atom inc)
+      (with-next-job
+        (fn [job]
+          (future
+            (try
+              (when job
+                (println (:endpoint job)
+                         (:period job)
+                         (- (System/currentTimeMillis)
+                            (:next-update job)))
+                (http/get (:endpoint job)))
+              (finally
+               (swap! used-capacity-atom dec)))))))))
 
 ;;;
-
-

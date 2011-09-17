@@ -5,10 +5,10 @@
 ;; pull from config
 
 (mon/mongo! :db :naptime)
-(mon/add-index! :jobs [:last-update])
+(mon/add-index! :jobs [:next-update])
 
-(def *max-capacity* 20)
-(def *sleep-time* 10)
+(def ^{:doc "Max request threads"} *max-capacity* 20)
+(def ^{:doc "Sleep time per run loop iteration"} *sleep-time* 10)
 
 (def *used-capacity* (atom 0))
 
@@ -18,3 +18,13 @@
     (Thread/sleep *sleep-time*)))
 
 (run!)
+
+(println @*used-capacity*)
+
+
+#_(doseq [n (range 10)]
+  (mon/insert! :jobs {:endpoint "http://google.com"
+                      :period 5000
+                      :next-update 0
+                      :locked false}))
+

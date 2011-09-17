@@ -39,6 +39,10 @@ fact I would suggest timeboxing yourself to a small amount of time for v1.
 + The same URI can be scheduled for different periods.
 + No persistence to start with.
 
+** High Level
++ Scales nicely
++ Jobs are picked up from total restart nicely
+
 ** Scheduler Ideas
 + Executor per delta
   - {10000 #(run-10-second-period 10-second-period-jobs)}
@@ -215,3 +219,9 @@ error.
 + schedule endpoint
 + unschedule endpoint
 + update last execution time
+
+
+Maybe calculate next run time at last execution time.
+
+find one where next execution is less than than current time
+Execute it, and calculate next execution time.
