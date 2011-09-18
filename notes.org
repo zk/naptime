@@ -42,6 +42,14 @@ fact I would suggest timeboxing yourself to a small amount of time for v1.
 + Set timeout on http request
 + Using an async http client should allow a high request cap.
 + Human readable input format (10 seconds / 10 s vs 10000)
++ Log data should be cleaned on input (ie don't log a start lag of 1
+  bil ms)
++ Cleaner separation between presentation / persistence
++ Human readable worker names
++ Make database interaction less brittle (have to remember to :upsert?
+  false).
++ Allow view of historical data for deleted endpoints.
+
 
 ** High Level
 + Scales nicely
