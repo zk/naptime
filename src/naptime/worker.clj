@@ -25,6 +25,14 @@
    :upsert? false
    :return-new? true))
 
+;;
+;; !!! The unlocking and setting of next-update needs to
+;;     happend in the future.  Current impl allows multiple runs
+;;     if request cycle takes longer than period.
+;;
+;;     Refactor this ASAP.
+;;
+
 (defn with-next-job
   "Passes next job (possibly nil) to `f`. Handles locking / unlocking of the job."
   [f]

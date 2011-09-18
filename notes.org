@@ -49,7 +49,7 @@ fact I would suggest timeboxing yourself to a small amount of time for v1.
 + Make database interaction less brittle (have to remember to :upsert?
   false).
 + Allow view of historical data for deleted endpoints.
-
++ Better error handling (even though heroku will restart crashed workers)
 
 ** High Level
 + Scales nicely
