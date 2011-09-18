@@ -21,18 +21,18 @@
 (def ^{:doc "Max request threads"} *max-capacity* 20)
 (def ^{:doc "Sleep time per run loop iteration"} *sleep-time* 10)
 
-(def *used-capacity* (atom 0))
-
-(defn run! [worker-id]
+(defn run! [worker-id used-capacity]
   (while true
-    (w/run-loop! worker-id *used-capacity* *max-capacity*)
+    (w/run-loop! worker-id used-capacity *max-capacity*)
     (Thread/sleep *sleep-time*)))
 
-(run! (str (java.util.UUID/randomUUID)))
+(run! (str (java.util.UUID/randomUUID)) (atom 0))
 
 #_(doseq [n (range 10)]
   (mon/insert! :jobs {:endpoint "http://google.com"
                       :period 5000
                       :next-update 0
                       :locked false}))
+
+
 
