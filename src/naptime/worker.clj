@@ -1,5 +1,5 @@
 (ns naptime.worker
-  (:require [clj-http.client :as http]
+  (:require [naptime.http-client :as http]
             [somnium.congomongo :as mon]))
 
 (defn fetch-and-lock-next-job!
@@ -33,28 +33,30 @@
       (f job)
       (finally
        (when job
-        (mon/update! :jobs
-                     {:_id (:_id job)}
-                     ;; change skew characteristics here
-                     {:$set {:next-update (+ (if (= 0 (:next-update job))
-                                               (System/currentTimeMillis)
-                                               (:next-update job))
-                                             (:period job))}})
-        (unlock-job! job))))))
+         (mon/update! :jobs
+                      {:_id (:_id job)}
+                      ;; change skew characteristics here
+                      {:$set {:next-update (+ (if (= 0 (:next-update job))
+                                                (System/currentTimeMillis)
+                                                (:next-update job))
+                                              (:period job))}})
+         (unlock-job! job))))))
 
 (defn log-job!
   "Log interesting info about the job."
-  [wid endpoint period start-lag request-time]
+  [wid endpoint period start-lag response-status request-time]
   (println wid
            endpoint
            period
            request-time
+           response-status
            start-lag)
   (mon/insert! :job-logs {:worker-id wid
                           :endpoint endpoint
                           :period period
                           :start-lag start-lag
                           :request-time request-time
+                          :response-status response-status
                           :timestamp (System/currentTimeMillis)}))
 
 (defn log-worker!
@@ -79,13 +81,20 @@
             (try
               (when job
                 (let [start (System/currentTimeMillis)
-                      delta (- start (:next-update job))]
-                  (http/get (:endpoint job))
+                      delta (- start (:next-update job))
+                      status (try
+                               (str (:status (http/get (:endpoint job))))
+                               (catch java.net.UnknownHostException e "Unknown Host")
+                               (catch Exception e "Unknown Error"))]
                   (log-job! worker-id
                             (:endpoint job)
                             (:period job)
                             delta
-                            (- (System/currentTimeMillis) start))))
+                            status
+                            (- (System/currentTimeMillis) start))
+                  (mon/update! :jobs
+                               {:_id (:_id job)}
+                               {:$set {:status status}})))
               (finally
                (swap! used-capacity-atom dec)))))))))
 

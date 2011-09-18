@@ -36,8 +36,12 @@ fact I would suggest timeboxing yourself to a small amount of time for v1.
 * V1
 + Soft timing requirements, we'll do our best to schedule jobs on
   time, but no guarantees.
-+ The same URI can be scheduled for different periods.
-+ No persistence to start with.
++ Highly imperative (side effect city) :(.
+
+** todo
++ Set timeout on http request
++ Using an async http client should allow a high request cap.
++ Human readable input format (10 seconds / 10 s vs 10000)
 
 ** High Level
 + Scales nicely
@@ -225,3 +229,8 @@ Maybe calculate next run time at last execution time.
 
 find one where next execution is less than than current time
 Execute it, and calculate next execution time.
+
+Pruning of jobs can be done either in the worker process or in a
+secondary process, nice to have flexibility here.
+
+
