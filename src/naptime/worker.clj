@@ -33,13 +33,16 @@
       (f job)
       (finally
        (when job
-         (mon/update! :jobs
-                      {:_id (:_id job)}
-                      ;; change skew characteristics here
-                      {:$set {:next-update (+ (if (= 0 (:next-update job))
-                                                (System/currentTimeMillis)
-                                                (:next-update job))
-                                              (:period job))}})
+         (mon/fetch-and-modify
+          :jobs
+          {:_id (:_id job)}
+          ;; change skew characteristics here
+          {:$set {:next-update (+ (if (= 0 (:next-update job))
+                                    (System/currentTimeMillis)
+                                    (:next-update job))
+                                  (:period job))}}
+          :upsert? false
+          :return-new? true)
          (unlock-job! job))))))
 
 (defn log-job!
@@ -92,9 +95,10 @@
                             delta
                             status
                             (- (System/currentTimeMillis) start))
-                  (mon/update! :jobs
-                               {:_id (:_id job)}
-                               {:$set {:status status}})))
+                  (mon/fetch-and-modify :jobs
+                                        {:_id (:_id job)}
+                                        {:$set {:status status}}
+                                        :upsert? false)))
               (finally
                (swap! used-capacity-atom dec)))))))))
 
