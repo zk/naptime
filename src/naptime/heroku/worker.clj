@@ -18,12 +18,11 @@
   (catch Exception e
     (println "worker-logs collection already exists.")))
 
-
 (def ^{:doc "Max request threads"}
   *max-capacity* (Integer/parseInt (env :worker-max-capacity "20")))
+
 (def ^{:doc "Sleep time per run loop iteration"}
   *sleep-time* (Integer/parseInt (env :worker-sleep-time "10")))
-
 
 (defn print-worker-init [worker-id]
   (println "*** Worker Starting ***")

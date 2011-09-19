@@ -11,11 +11,11 @@ Environment Variables:
 * `MONGO_PORT`
 * `MONGO_USER` (optional)
 * `MONGO_PASSWORD` (optional)
-
 * `WORKER_MAX_CAPACITY`
-* `WORKER_SLEEP_TIME`
-
 * `WEB_MAX_THREADS`
+* `WEB_WORKER_MAX_CAPACITY` -- The web process also runs a worker, set
+  the web process' worker max capacity here
+* `WORKER_SLEEP_TIME`
 
 ## License
 

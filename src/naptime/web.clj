@@ -2,11 +2,12 @@
   (:use [hiccup core [page-helpers :only (doctype)]]
         [nsfw render middleware]
         ring.util.response
-        [ring.middleware params keyword-params])
+        [ring.middleware params keyword-params flash session])
   (:require [naptime.core :as core]
             [net.cgrand.moustache :as mous]
             [nsfw.server :as server]
-            [somnium.congomongo :as mon])
+            [somnium.congomongo :as mon]
+            [hozumi.mongodb-session :as mongoss])
   (:import [java.util Timer]))
 
 
@@ -23,6 +24,18 @@
 
 (defn unschedule! [endpoint]
   (mon/destroy! :jobs {:endpoint endpoint}))
+
+(defn worker-info []
+  (let [worker-ids (mon/distinct-values :worker-logs "worker-id"
+                                        :where {:timestamp {:$gt (- (System/currentTimeMillis)
+                                                                    1000)}})]
+    (->> worker-ids
+         (map #(hash-map :worker-id %
+                         :logs (mon/fetch :worker-logs
+                                          :where {:worker-id %}
+                                          :sort {:timestamp -1}
+                                          :limit 100)))
+         (sort-by :worker-id))))
 
 
 ;;;;;;;;;;;;;
@@ -61,6 +74,11 @@
        (->> data
             (interpose ",")
             (apply str))))
+
+(def ^{:doc "Bound to current flash value in a request."} *flash* nil)
+
+(defn flash [resp & content]
+  (assoc resp :flash (apply str  content)))
 
 
 ;;;;;;;;;;;;;;;
@@ -211,6 +229,7 @@
      page-css]
     [:body
      [:h1 "Hooray, it's naptime!"]
+     [:h2 *flash*]
      body
      [:div {:class "instructions"}
       "refresh this page for the latest status info."]]]))
@@ -296,13 +315,11 @@
         (status 422)
         (header "Content-Type" "text/html")))
 
-(defn read [{:keys [endpoint]}]
-  (render :text (mon/fetch-one :jobs :where {:endpoint endpoint})))
-
 (defn create [{:keys [endpoint period]}]
   (if (and endpoint period)
     (do (schedule! endpoint period)
-        (redirect "/"))
+        (-> (redirect "/")
+            (flash "Ok! We're scheduled to hit " endpoint " every " period " ms.")))
     (error-response endpoint period)))
 
 (defn delete [{:keys [endpoint period]}]
@@ -340,21 +357,17 @@
        :endpoint (-> req :params :endpoint)
        :period (parse-period (-> req :params :period))))))
 
-(defn worker-info []
-  (let [worker-ids (mon/distinct-values :worker-logs "worker-id"
-                                        :where {:timestamp {:$gt (- (System/currentTimeMillis)
-                                                                    1000)}})]
-    (->> worker-ids
-         (map #(hash-map :worker-id %
-                         :logs (mon/fetch :worker-logs
-                                          :where {:worker-id %}
-                                          :sort {:timestamp -1}
-                                          :limit 100)))
-         (sort-by :worker-id))))
+(defn bind-flash [handler]
+  (fn [req]
+    (binding [*flash* (:flash req)]
+      (handler req))))
 
 (def routes
   (mous/app
    wrap-stacktrace
+   wrap-flash
+   bind-flash
+   (wrap-session {:store (mongoss/mongodb-store)})
    wrap-params
    wrap-keyword-params
    wrap-args
