@@ -1,6 +1,6 @@
 (ns naptime.heroku.worker
   (:use [naptime.heroku.env :only (env setup-mongo!)])
-  (:require [naptime.worker :as w]
+  (:require [naptime.worker :as worker]
             [somnium.congomongo :as mon]))
 
 ;; pull from config
@@ -33,16 +33,12 @@
   (println))
 
 
-(defn run! [worker-id used-capacity]
-  (while true
-    (w/run-loop! worker-id used-capacity *max-capacity*)
-    (Thread/sleep *sleep-time*)))
-
 (defn -main []
-  (let [worker-id (str (java.util.UUID/randomUUID))
-        used-capacity-atom (atom 0)]
+  (let [worker-id (str (java.util.UUID/randomUUID))]
     (print-worker-init worker-id)
-    (run! worker-id used-capacity-atom)))
+    (worker/run-join! :worker-id worker-id
+                      :max-capacity *max-capacity*
+                      :run-loop-sleep *sleep-time*)))
 
 (-main)
 
