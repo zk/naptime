@@ -3,8 +3,7 @@
         [nsfw render middleware]
         ring.util.response
         [ring.middleware params keyword-params flash session])
-  (:require [naptime.core :as core]
-            [net.cgrand.moustache :as mous]
+  (:require [net.cgrand.moustache :as mous]
             [nsfw.server :as server]
             [somnium.congomongo :as mon]
             [hozumi.mongodb-session :as mongoss])
