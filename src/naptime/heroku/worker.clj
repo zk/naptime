@@ -40,9 +40,4 @@
                       :max-capacity *max-capacity*
                       :run-loop-sleep *sleep-time*)))
 
-(-main)
-
-
-
-
 

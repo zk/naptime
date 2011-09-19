@@ -28,5 +28,3 @@
   (print-web-init)
   (server/restart s)
   (worker/run-join! :max-capacity *web-worker-max-capacity*))
-
-(-main)
