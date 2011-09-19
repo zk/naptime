@@ -119,7 +119,7 @@
    * `:run-loop-sleep` -- Sleep time per run loop iteration."
   [& opts]
   (let [opts (apply hash-map opts)
-        worker-id (or (:worker-id opts) (java.util.UUID/randomUUID))
+        worker-id (or (:worker-id opts) (str (java.util.UUID/randomUUID)))
         used-capacity-atom (or (:used-capacity-atom opts) (atom 0))
         max-capacity (or (:max-capacity opts) 20)
         run-loop-sleep (or (:run-loop-sleep opts) 10)]
