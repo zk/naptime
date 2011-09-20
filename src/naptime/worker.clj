@@ -3,7 +3,10 @@
    run (next-update < current-time), runs the job, and updates
    next-update to be current-time + period."
   (:require [naptime.http-client :as http]
-            [somnium.congomongo :as mon]))
+            [somnium.congomongo :as mon])
+  (:import [org.apache.http.conn ConnectTimeoutException]
+           [java.net SocketTimeoutException]
+           [java.net UnknownHostException]))
 
 (defn fetch-and-lock-next-job!
   "Grabs the next job that's scheduled to be run. Atomically
@@ -27,14 +30,6 @@
    {:$set {:locked false}}
    :upsert? false
    :return-new? true))
-
-;;
-;; !!! The unlocking and setting of next-update needs to
-;;     happend in the future.  Current impl allows multiple runs
-;;     if request cycle takes longer than period.
-;;
-;;     Refactor this ASAP.
-;;
 
 (defn with-next-job
   "Passes next job (possibly nil) to `f`. Handles locking / unlocking of the job."
@@ -84,7 +79,7 @@
 
 
 ;; refactor me!
-(defn run-loop! [worker-id used-capacity-atom max-capacity]
+(defn run-loop! [worker-id used-capacity-atom max-capacity connect-timeout response-timeout]
   (log-worker! worker-id @used-capacity-atom max-capacity)
   (if (< @used-capacity-atom max-capacity)
     (do
@@ -97,8 +92,13 @@
                 (let [start (System/currentTimeMillis)
                       delta (- start (:next-update job))
                       status (try
-                               (str (:status (http/get (:endpoint job))))
-                               (catch java.net.UnknownHostException e "Unknown Host")
+                               (str (:status (http/get (:endpoint job)
+                                                       {:conn-timeout connect-timeout
+                                                        :socket-timeout response-timeout})))
+                               (catch ConnectTimeoutException e
+                                 "Connect Timeout")
+                               (catch SocketTimeoutException e "Response Timeout")
+                               (catch UnknownHostException e "Unknown Host")
                                (catch Exception e "Unknown Error"))]
                   (log-job! worker-id
                             (:endpoint job)
@@ -119,16 +119,20 @@
    * `:used-capacity-atom` -- Atom which hold the number of
      running HTTP requests.
    * `:max-capacity` -- Max number of concurrent HTTP requests.
-   * `:run-loop-sleep` -- Sleep time per run loop iteration."
+   * `:run-loop-sleep` -- Sleep time per run loop iteration.
+   * `:connect-timeout` -- Endpoint connection timeout (ms).
+   * `:response-timeout` -- Timeout for recvng response."
   [& opts]
   (let [opts (apply hash-map opts)
         worker-id (or (:worker-id opts) (str (java.util.UUID/randomUUID)))
         used-capacity-atom (or (:used-capacity-atom opts) (atom 0))
         max-capacity (or (:max-capacity opts) 20)
-        run-loop-sleep (or (:run-loop-sleep opts) 10)]
+        run-loop-sleep (or (:run-loop-sleep opts) 10)
+        connect-timeout (or (:connect-timeout opts) 2000)
+        response-timeout (or (:response-timeout opts) 2000)]
     (reset! used-capacity-atom 0)
     (while true
-      (run-loop! worker-id used-capacity-atom max-capacity)
+      (run-loop! worker-id used-capacity-atom max-capacity connect-timeout response-timeout)
       (Thread/sleep run-loop-sleep))))
 
 

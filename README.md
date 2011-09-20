@@ -34,7 +34,7 @@ The endpoint and period are recieved from the user, and a next-update absolute t
 This information is then stored like so in the `:jobs` collection:
 
     {:endpoint "http://heroku.com"
-     :period 5000 # (ms)
+     :period 5000 ; (ms)
      :next-update 1316480549459}
 
 

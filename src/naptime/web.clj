@@ -10,6 +10,7 @@
   (:import [java.util Timer]))
 
 
+
 ;;;;;;;;;;;;;;;;;
 ;; Persistence ;;
 ;;;;;;;;;;;;;;;;;
@@ -35,6 +36,7 @@
                                           :sort {:timestamp -1}
                                           :limit 100)))
          (sort-by :worker-id))))
+
 
 
 ;;;;;;;;;;;;;
@@ -78,6 +80,7 @@
 
 (defn flash [resp & content]
   (assoc resp :flash (apply str  content)))
+
 
 
 ;;;;;;;;;;;;;;;
@@ -303,11 +306,11 @@
          "Request Time (ms)"]]
        [:div {:class "clear"}]]])))
 
+
+
 ;;;;;;;;;;;;;;;
 ;; Responses ;;
 ;;;;;;;;;;;;;;;
-
-
 
 (defn error-response [endpoint period]
     (-> (response (str "Sorry! Bad arguments -- {:endpoint " endpoint " :period " period "}"))

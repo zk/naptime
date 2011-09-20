@@ -14,11 +14,20 @@
 (def *max-web-threads* (Integer/parseInt (env :web-max-threads "20")))
 (def *web-worker-max-capacity* (Integer/parseInt (env :web-worker-max-capacity "10")))
 
+(def ^{:doc "Connect timeout in ms"}
+  *connect-timeout* (Integer/parseInt (env :worker-connect-timeout "2000")))
+
+(def ^{:doc "Response timeout in ms"}
+  *response-timeout* (Integer/parseInt (env :response-timeout "2000")))
+
+
 (defn print-web-init []
   (println "*** Web Starting ***")
   (println "  Port:" *port*)
   (println "  Max Web Threads:" *max-web-threads*)
   (println "  Max Worker Threads: " *web-worker-max-capacity*)
+  (println "  HTTP Connect Timeout: " *connect-timeout*)
+  (println "  HTTP Response Timeout: " *response-timeout*)
   (println "********************")
   (println))
 
@@ -27,4 +36,6 @@
 (defn -main []
   (print-web-init)
   (server/restart s)
-  (worker/run-join! :max-capacity *web-worker-max-capacity*))
+  (worker/run-join! :max-capacity *web-worker-max-capacity*
+                    :connect-timeout *connect-timeout*
+                    :response-timeout *response-timeout*))
