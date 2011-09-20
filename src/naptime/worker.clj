@@ -1,4 +1,7 @@
 (ns naptime.worker
+  "Pulls jobs out of the database that are scheduled to be
+   run (next-update < current-time), runs the job, and updates
+   next-update to be current-time + period."
   (:require [naptime.http-client :as http]
             [somnium.congomongo :as mon]))
 
