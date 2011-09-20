@@ -56,7 +56,7 @@ Standard operations against the database.
 
 ## Scaling Naptime
 
-Naptime should scale nicely.  Simple add more workers when load gets
+Naptime should scale nicely.  Simply add more workers when load gets
 too high (see load charts on naptime webapp index page).
 
 
