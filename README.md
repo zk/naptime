@@ -2,20 +2,38 @@
 
 Naptime is an application that calls http endpoints at periodic intervals.
 
-## Usage
+## Development
 
-Environment Variables:
+1. [Install](http://www.mongodb.org/downloads) and run `mongod`.
+2. `cd` into the naptime directory.
+3. `lein deps && lein swank`.
+4. Connect w/ slime and load the `naptime.dev` namespace.  This will
+   start the web process and 1 worker.
+5. Visit `http://localhost:8080`.
 
-* `MONGO_DB`
-* `MONGO_HOST`
+## Production
+
+1. `heroku create --stack cedar`
+2. `git push heorku master`
+3. Add the required env vars through `heroku config:add`.  You can use
+   [MongoHQ](http://mongohq.com) for a free 16 meg mongo database.
+3. Visit `http://<your-app-name>.herokuapp.com`
+
+## Configuration
+
+Naptime's configured (dev and production) through several environment variables.
+
+* `MONGO_DB` -- Mongo db name.
+* `MONGO_HOST` 
 * `MONGO_PORT`
-* `MONGO_USER` (optional)
-* `MONGO_PASSWORD` (optional)
-* `WORKER_MAX_CAPACITY`
-* `WEB_MAX_THREADS`
+* `MONGO_USER` (if appicable)
+* `MONGO_PASSWORD` (if applicable)
+* `WORKER_MAX_CAPACITY` -- Max number of concurrent http requests per worker.
+* `WEB_MAX_THREADS` -- Max number of threads used to serve HTTP
+   requests to the web interface.
 * `WEB_WORKER_MAX_CAPACITY` -- The web process also runs a worker, set
-  the web process' worker max capacity here
-* `WORKER_SLEEP_TIME`
+  the web process' worker max capacity here.
+* `WORKER_SLEEP_TIME` -- Sleep time per worker run loop iteration.
 
 ## Stack
 
