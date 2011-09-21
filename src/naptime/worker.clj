@@ -8,6 +8,12 @@
            [java.net SocketTimeoutException]
            [java.net UnknownHostException]))
 
+(defn unix-ts []
+  (System/currentTimeMillis))
+
+(defn uuid []
+  (str (java.util.UUID/randomUUID)))
+
 (defn fetch-and-lock-next-job!
   "Grabs the next job that's scheduled to be run. Atomically
   locks job on fetch."
@@ -15,7 +21,7 @@
   (mon/fetch-and-modify
    :jobs
    {:locked false
-    :next-update {:$lte (System/currentTimeMillis)}}
+    :next-update {:$lte (unix-ts)}}
    {:$set {:locked true}}
    :sort {:next-update -1}
    :upsert? false
@@ -41,7 +47,7 @@
    {:_id (:_id job)}
    ;; change skew characteristics here
    {:$set {:next-update (+ (if (= 0 (:next-update job))
-                             (System/currentTimeMillis)
+                             (unix-ts)
                              (:next-update job))
                            (:period job))}}
    :upsert? false
@@ -65,7 +71,7 @@
 
 
 (defn log-job!
-  "Log interesting info about the job."
+  "Log interesting info about an executed job."
   [wid endpoint period start-lag response-status request-time]
   (println wid
            endpoint
@@ -79,16 +85,16 @@
                           :start-lag start-lag
                           :request-time request-time
                           :response-status response-status
-                          :timestamp (System/currentTimeMillis)}))
+                          :timestamp (unix-ts)}))
 
 (defn log-worker!
-  "Log interesting information about the worker."
+  "Log interesting information about a worker."
   [wid used-capacity max-capacity]
   #_(println wid used-capacity)
   (mon/insert! :worker-logs {:worker-id wid
                              :used-capacity used-capacity
                              :max-capacity max-capacity
-                             :timestamp (System/currentTimeMillis)}))
+                             :timestamp (unix-ts)}))
 
 (defn update-job-status! [job status]
   (mon/fetch-and-modify :jobs
@@ -106,14 +112,10 @@
                    :socket-timeout response-timeout})
         :status
         str)
-    (catch ConnectTimeoutException e
-      "Connect Timeout")
+    (catch ConnectTimeoutException e "Connect Timeout")
     (catch SocketTimeoutException e "Response Timeout")
     (catch UnknownHostException e "Unknown Host")
     (catch Exception e "Unknown Error")))
-
-(defn unix-ts []
-  (System/currentTimeMillis))
 
 (defn run-loop! [worker-id
                  used-capacity-atom
@@ -146,16 +148,20 @@
    * `:response-timeout` -- Timeout for recvng response."
   [& opts]
   (let [opts (apply hash-map opts)
-        worker-id (or (:worker-id opts) (str (java.util.UUID/randomUUID)))
-        used-capacity-atom (or (:used-capacity-atom opts) (atom 0))
-        max-capacity (or (:max-capacity opts) 20)
-        run-loop-sleep (or (:run-loop-sleep opts) 10)
-        connect-timeout (or (:connect-timeout opts) 2000)
-        response-timeout (or (:response-timeout opts) 2000)]
+        worker-id           (get opts :worker-id (uuid))
+        used-capacity-atom  (get opts :used-capacity-atom (atom 0))
+        max-capacity        (get opts :max-capacity 20)
+        run-loop-sleep      (get opts :run-loop-sleep 10)
+        connect-timeout     (get opts :connect-timeout 2000)
+        response-timeout    (get opts :response-timeout 2000)]
     (reset! used-capacity-atom 0)
     (while true
       (run-loop! worker-id used-capacity-atom max-capacity connect-timeout response-timeout)
       (Thread/sleep run-loop-sleep))))
+
+
+
+
 
 
 
