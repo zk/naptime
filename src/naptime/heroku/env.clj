@@ -26,4 +26,12 @@
   (let [u (env :mongo-user default-user)
         p (env :mongo-password default-pass)]
     (when (and u p)
-      (mon/authenticate u p))))
+      (mon/authenticate u p)))
+  (try
+    (mon/create-collection! :job-logs :capped true :size (* 1024 1024 4))
+    (catch Exception e
+      (println "job-logs collection already exists.")))
+  (try
+    (mon/create-collection! :worker-logs :capped true :size (* 1024 1024 4))
+    (catch Exception e
+      (println "worker-logs collection already exists."))))
