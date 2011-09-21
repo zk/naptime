@@ -242,3 +242,22 @@ Pruning of jobs can be done either in the worker process or in a
 secondary process, nice to have flexibility here.
 
 
+
+
+<2011-09-21 Wed 12:14>
+
+Getting rid of with-next-job...  It's confusing and dosen't work well,
+because everything that happens to the job needs to be done in the
+future anyway.
+
+I need a better way to split out what's done to the job (from user),
+from how the coordination is handled (from system).
+
+Basically, the future needs to be part of with-next-job (renamed to
+run-job).  Better, because:
+
+1. nil can be handled instead of passing that
+   off to the calling code. 
+2. Used capacity atom management dosen't have to be handled by user
+   either.
+
