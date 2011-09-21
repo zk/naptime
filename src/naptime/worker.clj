@@ -31,25 +31,38 @@
    :upsert? false
    :return-new? true))
 
+;; With-next-job needs to handle future stuff too.
+
+(defn set-next-update!
+  "next update time = last update time + period"
+  [job]
+  (mon/fetch-and-modify
+   :jobs
+   {:_id (:_id job)}
+   ;; change skew characteristics here
+   {:$set {:next-update (+ (if (= 0 (:next-update job))
+                             (System/currentTimeMillis)
+                             (:next-update job))
+                           (:period job))}}
+   :upsert? false
+   :return-new? true))
+
 (defn with-next-job
-  "Passes next job (possibly nil) to `f`. Handles locking / unlocking of the job."
-  [f]
-  (let [job (fetch-and-lock-next-job!)]
-    (try
-      (f job)
-      (finally
-       (when job
-         (mon/fetch-and-modify
-          :jobs
-          {:_id (:_id job)}
-          ;; change skew characteristics here
-          {:$set {:next-update (+ (if (= 0 (:next-update job))
-                                    (System/currentTimeMillis)
-                                    (:next-update job))
-                                  (:period job))}}
-          :upsert? false
-          :return-new? true)
-         (unlock-job! job))))))
+  "Passes next job (if available) to `f`. Handles locking / unlocking
+  of the job."
+  [used-capacity-atom max-capacity f]
+  (when (< @used-capacity-atom max-capacity)
+    (let [job (fetch-and-lock-next-job!)]
+      (when job
+        (swap! used-capacity-atom inc)
+        (future
+          (try
+            (f job)
+            (finally
+             (swap! used-capacity-atom dec)
+             (set-next-update! job)
+             (unlock-job! job))))))))
+
 
 (defn log-job!
   "Log interesting info about the job."
@@ -77,41 +90,50 @@
                              :max-capacity max-capacity
                              :timestamp (System/currentTimeMillis)}))
 
+(defn update-job-status! [job status]
+  (mon/fetch-and-modify :jobs
+                        {:_id (:_id job)}
+                        {:$set {:status status}}
+                        :upsert? false))
 
-;; refactor me!
-(defn run-loop! [worker-id used-capacity-atom max-capacity connect-timeout response-timeout]
+(defn execute-job
+  "Connect to HTTP endpoint with connection and response timeouts."
+  [job connect-timeout response-timeout]
+  (try
+    (-> job
+        :endpoint
+        (http/get {:conn-timeout connect-timeout
+                   :socket-timeout response-timeout})
+        :status
+        str)
+    (catch ConnectTimeoutException e
+      "Connect Timeout")
+    (catch SocketTimeoutException e "Response Timeout")
+    (catch UnknownHostException e "Unknown Host")
+    (catch Exception e "Unknown Error")))
+
+(defn unix-ts []
+  (System/currentTimeMillis))
+
+(defn run-loop! [worker-id
+                 used-capacity-atom
+                 max-capacity
+                 connect-timeout
+                 response-timeout]
   (log-worker! worker-id @used-capacity-atom max-capacity)
-  (if (< @used-capacity-atom max-capacity)
-    (do
-      (swap! used-capacity-atom inc)
-      (with-next-job
-        (fn [job]
-          (future
-            (try
-              (when job
-                (let [start (System/currentTimeMillis)
-                      delta (- start (:next-update job))
-                      status (try
-                               (str (:status (http/get (:endpoint job)
-                                                       {:conn-timeout connect-timeout
-                                                        :socket-timeout response-timeout})))
-                               (catch ConnectTimeoutException e
-                                 "Connect Timeout")
-                               (catch SocketTimeoutException e "Response Timeout")
-                               (catch UnknownHostException e "Unknown Host")
-                               (catch Exception e "Unknown Error"))]
-                  (log-job! worker-id
-                            (:endpoint job)
-                            (:period job)
-                            delta
-                            status
-                            (- (System/currentTimeMillis) start))
-                  (mon/fetch-and-modify :jobs
-                                        {:_id (:_id job)}
-                                        {:$set {:status status}}
-                                        :upsert? false)))
-              (finally
-               (swap! used-capacity-atom dec)))))))))
+  (with-next-job used-capacity-atom max-capacity
+    (fn [job]
+      (let [start (unix-ts)
+            start-lag (- start (:next-update job))
+            status (execute-job job connect-timeout response-timeout)
+            request-time (- (unix-ts) start)]
+        (log-job! worker-id
+                  (:endpoint job)
+                  (:period job)
+                  start-lag
+                  status
+                  request-time)
+        (update-job-status! job status)))))
 
 (defn run-join!
   "Continuously pull and run work. Options are:
