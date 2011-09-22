@@ -261,3 +261,11 @@ run-job).  Better, because:
 2. Used capacity atom management dosen't have to be handled by user
    either.
 
+Might get rid of the used-capacity-atom by using some implicit
+mechanism?
+
+Recursion? Data struture? Lazy seq? Queues?
+
+The underlying problem is that my mental model collects this flow
+that's spread across multiple procecesses into one "unit".
+

@@ -20,8 +20,7 @@
   []
   (mon/fetch-and-modify
    :jobs
-   {:locked false
-    :next-update {:$lte (unix-ts)}}
+   {:locked false :next-update {:$lte (unix-ts)}}
    {:$set {:locked true}}
    :sort {:next-update -1}
    :upsert? false
@@ -30,45 +29,13 @@
 (defn unlock-job!
   "Unlocks a job."
   [job]
-  (mon/fetch-and-modify
-   :jobs
-   {:_id (:_id job)}
-   {:$set {:locked false}}
-   :upsert? false
-   :return-new? true))
-
-;; With-next-job needs to handle future stuff too.
-
-(defn set-next-update!
-  "next update time = last update time + period"
-  [job]
-  (mon/fetch-and-modify
-   :jobs
-   {:_id (:_id job)}
-   ;; change skew characteristics here
-   {:$set {:next-update (+ (if (= 0 (:next-update job))
-                             (unix-ts)
-                             (:next-update job))
-                           (:period job))}}
-   :upsert? false
-   :return-new? true))
-
-(defn with-next-job
-  "Passes next job (if available) to `f`. Handles locking / unlocking
-  of the job."
-  [used-capacity-atom max-capacity f]
-  (when (< @used-capacity-atom max-capacity)
-    (let [job (fetch-and-lock-next-job!)]
-      (when job
-        (swap! used-capacity-atom inc)
-        (future
-          (try
-            (f job)
-            (finally
-             (swap! used-capacity-atom dec)
-             (set-next-update! job)
-             (unlock-job! job))))))))
-
+  (when job
+   (mon/fetch-and-modify
+    :jobs
+    {:_id (:_id job)}
+    {:$set {:locked false}}
+    :upsert? false
+    :return-new? true)))
 
 (defn log-job!
   "Log interesting info about an executed job."
@@ -97,13 +64,44 @@
                              :timestamp (unix-ts)}))
 
 (defn update-job-status! [job status]
-  (mon/fetch-and-modify :jobs
-                        {:_id (:_id job)}
-                        {:$set {:status status}}
-                        :upsert? false))
+  (when job
+    (mon/fetch-and-modify :jobs
+                          {:_id (:_id job)}
+                          {:$set {:status status}}
+                          :upsert? false)))
+
+(defn set-next-update!
+  "next update time = last update time + period"
+  [{:keys [_id next-update period]}]
+  (mon/fetch-and-modify
+   :jobs
+   {:_id _id}
+   ;; change skew characteristics here
+   {:$set {:next-update (+ (if (= 0 next-update)
+                             (unix-ts)
+                             next-update)
+                           period)}}
+   :upsert? false
+   :return-new? true))
+
+(defn with-next-job
+  "Passes next job (if available) to `f`. Handles locking / unlocking
+  of the job."
+  [used-capacity-atom max-capacity f]
+  (when (< @used-capacity-atom max-capacity)
+    (when-let [job (fetch-and-lock-next-job!)]
+      (swap! used-capacity-atom inc)
+      (future (try
+                (f job)
+                (finally
+                 (swap! used-capacity-atom dec)
+                 (set-next-update! job)
+                 (unlock-job! job)))))))
+
 
 (defn execute-job
-  "Connect to HTTP endpoint with connection and response timeouts."
+  "Connect to HTTP endpoint with connection and response
+  timeouts. Returns a status string based on result of request."
   [job connect-timeout response-timeout]
   (try
     (-> job
@@ -124,14 +122,14 @@
                  response-timeout]
   (log-worker! worker-id @used-capacity-atom max-capacity)
   (with-next-job used-capacity-atom max-capacity
-    (fn [job]
+    (fn [{:keys [next-update endpoint period] :as job}]
       (let [start (unix-ts)
-            start-lag (- start (:next-update job))
+            start-lag (- start next-update)
             status (execute-job job connect-timeout response-timeout)
             request-time (- (unix-ts) start)]
         (log-job! worker-id
-                  (:endpoint job)
-                  (:period job)
+                  endpoint
+                  period
                   start-lag
                   status
                   request-time)
@@ -158,10 +156,5 @@
     (while true
       (run-loop! worker-id used-capacity-atom max-capacity connect-timeout response-timeout)
       (Thread/sleep run-loop-sleep))))
-
-
-
-
-
 
 
