@@ -180,31 +180,29 @@
 
 (defn render-jobs [jobs]
   (html
-   [:div {:class "jobs"}
+   [:div.jobs
     [:table 
      (map #(let [endpoint (:endpoint %)
                  period (:period %)
                  status (:status %)]
              [:tr
-              [:td {:class "endpoint"} endpoint]
-              [:td {:class "status"}
+              [:td.endpoint endpoint]
+              [:td.status
                (if (= "200" status)
                  status
-                 [:span {:class "warning"}
+                 [:span.warning
                   status])]
-              [:td {:class "period"} period]
-              [:td {:class "about"}
-               [:a {:class "about"
-                    :href (str "/" (url-encode endpoint))} "about"]
+              [:td.period period]
+              [:td.about
+               [:a.about {:href (str "/" (url-encode endpoint))} "about"]
                "&nbsp;&nbsp;&nbsp;"
-               [:a {:class "delete"
-                    :href (str "/delete?endpoint=" (url-encode endpoint))}
+               [:a.delete {:href (str "/delete?endpoint=" (url-encode endpoint))}
                 "delete"]]])
           jobs)]]))
 
 (defn create-or-update-form []
   (html
-   [:div {:class "create"}
+   [:div.create
     [:form {:method "GET"
             :action "/create"}
      [:input {:type "text"
@@ -219,7 +217,7 @@
 
 (defn render-jobs-controls []
   (html
-   [:div {:class "jobs-controls"}
+   [:div.jobs-controls
     [:a {:href "/delete-all"} "clear all"]]))
 
 (defn main-tpl [& body]
@@ -233,8 +231,7 @@
      [:h1 "Hooray, it's naptime!"]
      [:h2 *flash*]
      body
-     [:div {:class "instructions"}
-      "refresh this page for the latest status info."]]]))
+     [:div.instructions "refresh this page for the latest status info."]]]))
 
 (defn calc-load [worker]
   (float (* (/ (:used-capacity worker)
@@ -258,7 +255,7 @@
     " (%)"]))
 
 (defn render-workers [workers]
-  (html [:div {:class "workers"}
+  (html [:div.workers
          (map render-worker workers)]))
 
 (defn index [jobs workers]
@@ -272,16 +269,16 @@
   (let [start-lags (map :start-lag logs)
         request-times (map :request-time logs)]
     (main-tpl
-     [:div {:class "about-job"}
+     [:div.about-job
       [:h2 endpoint]
-      [:span {:class "status"}
-       [:span {:class "label"} "last status: "]
+      [:span.status
+       [:span.label "last status: "]
        [:span {:class (when-not (= "200" status) "warning")}
         status]]
-      [:span {:class "period"}
-       [:span {:class "label"} "period (ms): "]
+      [:span.period
+       [:span.label "period (ms): "]
        period]
-      [:div {:class "charts"}
+      [:div.charts
        [:div {:class "chart lag-chart"}
         [:img {:src (goog-sparkline 275
                                     50
@@ -304,7 +301,7 @@
                :height 50}
          [:br]
          "Request Time (ms)"]]
-       [:div {:class "clear"}]]])))
+       [:div.clear]]])))
 
 
 
