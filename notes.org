@@ -269,3 +269,75 @@ Recursion? Data struture? Lazy seq? Queues?
 The underlying problem is that my mental model collects this flow
 that's spread across multiple procecesses into one "unit".
 
+
+
+
+<2011-09-28 Wed 21:12>
+
+
+* Better Statistics
+
+ATM the stats are very rudamentry, and the displayed history is
+n-dependent (last n entries are shown) instead of time-dependent (last
+m seconds are shown), and I'd like to have the latter..
+
+This boils down to 2 problems, conversion from n-domain to
+time-domain, and rendering of time domain.
+
+** N-Domain to Time-Domain
+
+Bucketing mechanism -- Stats are inserted into buckets by each worker,
+should resolution be stored along side so that 
+
+Bucket on key:
+
+(/ TIMESTAMP 1000) => second bucket
+(/ TIMESTAMP (* 1000 60) => minute bucket
+(/ TIMESTAMP (* 1000 60 60) => hour bucket
+
+Collision after:
+
+1317268189 (seconds)
+21954470 (minutes)
+
+diff: 1295313719 minutes ~ 2464 years, I'm cool with that.
+
+So collision on keys between seconds and minutes after 2464 years.
+
+Or just use different collections, but it's nice to know this could
+all go in a single map if it needs to, plus entries are deleted out of
+the map, so what this really means is that data would have to be
+collected for 2400 years without stats calculation being run.
+
+Just have to watch the 4 meg document limit for mongo.
+
+Race condition is ok, because the data will get overwritten with the
+same data.
+
+
+*** Process
+1. If on new bucket, process previous bucket and create new bucket.
+2. Delete 
+
+get-next-complete-bucket
+
+
+
+
+** Rendering 
+
+It'd be nice if the resolution can be increased/decreased, lets say
+min resolution of a datapoint is 1s and max is 1s * 60 * 60 * 24 =
+86,400 s (1 day).
+
+Ugh, returning 86k rows from the database is no fun.
+
+So what if we average under a fixed resolution, say, second, minute,
+and hour.
+
+Maybe show 'last m units' where m is fixed and units is one of
+[seconds minutes hours days whatever].
+
+
+
+
