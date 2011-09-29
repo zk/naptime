@@ -102,30 +102,29 @@
 (defn execute-job
   "Connect to HTTP endpoint with connection and response
   timeouts. Returns a status string based on result of request."
-  [job connect-timeout response-timeout]
-  (try
-    (-> job
-        :endpoint
-        (http/get {:conn-timeout connect-timeout
-                   :socket-timeout response-timeout})
-        :status
-        str)
-    (catch ConnectTimeoutException e "Connect Timeout")
-    (catch SocketTimeoutException e "Response Timeout")
-    (catch UnknownHostException e "Unknown Host")
-    (catch Exception e "Unknown Error")))
+  [{:keys [endpoint period]}]
+  (let [connect-timeout (int (Math/floor (* period 0.3)))
+        response-timeout (int (Math/floor (* period 0.7)))]
+    (try
+      (-> endpoint
+          (http/get {:conn-timeout connect-timeout
+                     :socket-timeout response-timeout})
+          :status
+          str)
+      (catch ConnectTimeoutException e "Connect Timeout")
+      (catch SocketTimeoutException e "Response Timeout")
+      (catch UnknownHostException e "Unknown Host")
+      (catch Exception e "Unknown Error"))))
 
 (defn run-loop! [worker-id
                  used-capacity-atom
-                 max-capacity
-                 connect-timeout
-                 response-timeout]
+                 max-capacity]
   (log-worker! worker-id @used-capacity-atom max-capacity)
   (with-next-job used-capacity-atom max-capacity
     (fn [{:keys [next-update endpoint period] :as job}]
       (let [start (unix-ts)
             start-lag (- start next-update)
-            status (execute-job job connect-timeout response-timeout)
+            status (execute-job job)
             request-time (- (unix-ts) start)]
         (log-job! worker-id
                   endpoint
@@ -141,20 +140,16 @@
    * `:used-capacity-atom` -- Atom which hold the number of
      running HTTP requests.
    * `:max-capacity` -- Max number of concurrent HTTP requests.
-   * `:run-loop-sleep` -- Sleep time per run loop iteration.
-   * `:connect-timeout` -- Endpoint connection timeout (ms).
-   * `:response-timeout` -- Timeout for recvng response."
+   * `:run-loop-sleep` -- Sleep time per run loop iteration."
   [& opts]
   (let [opts (apply hash-map opts)
         worker-id           (get opts :worker-id (uuid))
         used-capacity-atom  (get opts :used-capacity-atom (atom 0))
         max-capacity        (get opts :max-capacity 20)
-        run-loop-sleep      (get opts :run-loop-sleep 10)
-        connect-timeout     (get opts :connect-timeout 2000)
-        response-timeout    (get opts :response-timeout 2000)]
+        run-loop-sleep      (get opts :run-loop-sleep 10)]
     (reset! used-capacity-atom 0)
     (while true
-      (run-loop! worker-id used-capacity-atom max-capacity connect-timeout response-timeout)
+      (run-loop! worker-id used-capacity-atom max-capacity)
       (Thread/sleep run-loop-sleep))))
 
 
