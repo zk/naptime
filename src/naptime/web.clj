@@ -172,9 +172,17 @@
                      :margin-right "138px"}]
    [:input.period {:width "75px"
                    :margin-right "10px"}]
-   [:.instructions {:color "#aaa"}]
+   ;; effing input elements
+   [:input.new-endpoint {:display "block"
+                         :margin-top "2px"
+                         :float "right"}]
+   [:.instructions {:color "#aaa"
+                    :margin-bottom "20px"}]
    [:.workers {:margin-bottom "30px"}]
-   [:.worker.chart {:margin-bottom "20px"}]))
+   [:.worker.chart {:margin-bottom "20px"}]
+   [:.worker-gravatar {:margin-bottom "-32px"
+                       :width "75px"
+                       :height "75px"}]))
 
 (def page-css (str main-css about-page-css))
 
@@ -212,6 +220,7 @@
               :name "period"
               :class "text period"}]
      [:input {:type "submit"
+              :class "submit new-endpoint"
               :name "create"
               :value "new / update"}]]]))
 
@@ -231,6 +240,7 @@
      [:h1 "Hooray, it's naptime!"]
      [:h2 *flash*]
      body
+     [:div.clear]
      [:div.instructions "refresh this page for the latest status info."]]]))
 
 (defn calc-load [worker]
@@ -250,9 +260,9 @@
            :width 500
            :height 100}]
     [:br]
-    "Load for worker "
-    [:em (:worker-id worker)]
-    " (%)"]))
+    "% load for worker: "
+    [:img.worker-gravatar
+     {:src (str "http://robohash.org/" (:worker-id worker) ".png?set=set3&size=75x75")}]]))
 
 (defn render-workers [workers]
   (html [:div.workers
