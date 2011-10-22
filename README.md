@@ -1,6 +1,7 @@
 # Naptime
 
-Naptime is an application that calls http endpoints at periodic intervals.
+Naptime is an application that calls http endpoints at fixed intervals.
+
 
 ## Development
 
@@ -11,6 +12,7 @@ Naptime is an application that calls http endpoints at periodic intervals.
    start the web process and 1 worker.
 5. Visit `http://localhost:8080`.
 
+
 ## Production
 
 1. `heroku create --stack cedar`
@@ -18,6 +20,7 @@ Naptime is an application that calls http endpoints at periodic intervals.
 3. Add the required env vars through `heroku config:add`.  You can use
    [MongoHQ](http://mongohq.com) for a free 16 meg mongo database.
 3. Visit `http://<your-app-name>.herokuapp.com`
+
 
 ## Configuration
 
@@ -35,11 +38,21 @@ Naptime's configured (dev and production) through several environment variables.
   the web process' worker max capacity here.
 * `WORKER_SLEEP_TIME` -- Sleep time per worker run loop iteration.
 
+
 ## Stack
 
 * Clojure
 * Heroku
 * MongoDB
+
+
+## Screenshots
+
+![endpoints overview](http://i.imgur.com/fmctA.png)
+
+![endpoint detail](http://i.imgur.com/uVUR9.png)
+
+
 
 ## Architecture
 
