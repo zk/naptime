@@ -8,23 +8,23 @@
             [nsfw.server :as server]
             [somnium.congomongo :as mon]))
 
-(setup-mongo! "naptime" "localhost" "27017")
-
-(def *port* (Integer/parseInt (env :port "8080")))
-(def *max-web-threads* (Integer/parseInt (env :web-max-threads "20")))
-(def *web-worker-max-capacity* (Integer/parseInt (env :web-worker-max-capacity "10")))
+(def port (Integer/parseInt (env :port "8080")))
+(def max-web-threads (Integer/parseInt (env :web-max-threads "20")))
+(def web-worker-max-capacity (Integer/parseInt (env :web-worker-max-capacity "10")))
 
 (defn print-web-init []
   (println "*** Web Starting ***")
-  (println "  Port:" *port*)
-  (println "  Max Web Threads:" *max-web-threads*)
-  (println "  Max Worker Threads: " *web-worker-max-capacity*)
+  (println "  Port:" port)
+  (println "  Max Web Threads:" max-web-threads)
+  (println "  Max Worker Threads: " web-worker-max-capacity)
   (println "********************")
   (println))
 
-(defonce s (server/make (var web/routes) :port *port* :max-threads *max-web-threads*))
+(defonce s (server/make (var web/routes) :port port :max-threads max-web-threads))
 
 (defn -main []
+  (setup-mongo! "naptime" "localhost" "27017")
   (print-web-init)
   (server/restart s)
-  (worker/run-join! :max-capacity *web-worker-max-capacity*))
+  (worker/run-join! :max-capacity web-worker-max-capacity))
+
