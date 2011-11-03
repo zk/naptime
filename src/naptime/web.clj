@@ -6,7 +6,8 @@
   (:require [net.cgrand.moustache :as mous]
             [nsfw.server :as server]
             [somnium.congomongo :as mon]
-            [hozumi.mongodb-session :as mongoss])
+            [hozumi.mongodb-session :as mongoss]
+            [naptime.robot-names :as robot-names])
   (:import [java.util Timer]))
 
 
@@ -162,7 +163,7 @@
                  :margin-left "auto"
                  :margin-right "auto"
                  :padding "20px"
-                 :margin-bottom "30px"}]
+                 :margin-bottom "35px"}]
    [:div.create:hover {:border "solid #999 1px"}]
    [:form {:padding "0px"
            :margin "0px"}]
@@ -180,9 +181,17 @@
                     :margin-bottom "20px"}]
    [:.workers {:margin-bottom "30px"}]
    [:.worker.chart {:margin-bottom "20px"}]
-   [:.worker-gravatar {:margin-bottom "-32px"
+   [".worker .caption" {:width "220px"
+                        :margin-left "auto"
+                        :margin-right "auto"
+                        :padding-top "30px"}]
+   [:.worker-badge {:float "right"
+                    :margin-top "-32px"}]
+   [:.worker-gravatar {:margin-bottom "-18px"
                        :width "75px"
-                       :height "75px"}]))
+                       :height "75px"}]
+   [:.robot-name {:color "#333"}]
+   [:.robot-name {:font-size "13px"}]))
 
 (def page-css (str main-css about-page-css))
 
@@ -259,10 +268,14 @@
                                 (map calc-load (:logs worker)))
            :width 500
            :height 100}]
-    [:br]
-    "% load for worker: "
-    [:img.worker-gravatar
-     {:src (str "http://robohash.org/" (:worker-id worker) ".png?set=set3&size=75x75")}]]))
+    [:div.caption
+     "% utilization for "
+     [:div.worker-badge
+      [:img.worker-gravatar
+       {:src (str "http://robohash.org/" (:worker-id worker) ".png?set=set3&size=75x75")}]
+      [:br]
+      [:span.robot-name (robot-names/lookup (:worker-id worker))]]
+     [:div.clear]]]))
 
 (defn render-workers [workers]
   (html [:div.workers
