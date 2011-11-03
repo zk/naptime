@@ -4,18 +4,18 @@
   (:import [java.security MessageDigest]
            [java.math BigInteger]))
 
-(defn sha1-bigint [s]
-  (BigInteger. (.digest (MessageDigest/getInstance "SHA1") (.getBytes s))))
-
 (def names-list (vec (shuffle (concat jp/names en/names))))
 
 (def names-count (+ (count jp/names)
                     (count en/names)))
 
+(defn sha1-bigint [s]
+  (BigInteger. (.digest (MessageDigest/getInstance "SHA1") (.getBytes s))))
+
 (defn lookup
-  "Consistently maps strings to names"
+  "Consistently map strings to names"
   [s]
   (get names-list
-       (dec (mod (sha1 s) names-count))
+       (dec (mod (sha1-bigint s) names-count))
        "???"))
 
