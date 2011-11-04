@@ -225,6 +225,33 @@ will naturally be distributed into a steady state that minimizes this
 error.
 
 
+** Lock Timeouts
+
+First pass is same lock timeout for all jobs.  It would be nice to
+have a lock timeout per job, but not as simple due to the fact that
+the lock timeout has to be set atomically at the time of locking, else
+a failure between grabbing the lock and setting the timeout is,
+however unlikely, possible.  
+
+Could update expiry after the atomic op, but the gap still exists.
+
+A lock expiry (current-time + default-lock-timeout) could be set,
+then a better lock expiry (current-time + period) could be set soon
+after.
+
+So what happens when the lock timeout is hit?
++ lock expiry cleared
++ leave last :next-update?
+  + Yes, lock expirys are hit only when the worker fails, either
+    catastrophically, or due to a long request. There's the potential
+    for strangeness when job periods are longer than the lock timeout
+    (request is still pending, but the job is unlocked and available
+    for another worker to pick up. This is solved (is it?) by lock
+    timeout >= period.
+
+Not quite happy with this yet, I'll be happier when I can implement
+lock expiry based on period.
+
 
 ** Atomic Operations
 

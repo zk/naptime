@@ -2,7 +2,8 @@
   "Pulls jobs out of the database that are scheduled to be
    run (next-update < current-time), runs the job, and updates
    next-update to be current-time + period."
-  (:require [naptime.http-client :as http]
+  (:require [naptime.env :as env]
+            [naptime.http-client :as http]
             [somnium.congomongo :as mon])
   (:import [org.apache.http.conn ConnectTimeoutException]
            [java.net SocketTimeoutException]
@@ -19,21 +20,20 @@
   locks job on fetch."
   []
   (mon/fetch-and-modify
-   :jobs
+   env/jobs-coll
    {:locked false :next-update {:$lte (unix-ts)}}
-   {:$set {:locked true}}
+   {:$set {:locked true :lock-expiry (+ (unix-ts) env/lock-timeout)}}
    :sort {:next-update -1}
    :upsert? false
    :return-new? true))
 
-(defn unlock-job!
-  "Unlocks a job."
-  [job]
+(defn unlock-job! [job]
   (when job
    (mon/fetch-and-modify
-    :jobs
+    env/jobs-coll
     {:_id (:_id job)}
-    {:$set {:locked false}}
+    {:$set {:locked false
+            :lock-expiry nil}}
     :upsert? false
     :return-new? true)))
 
@@ -65,7 +65,7 @@
 
 (defn update-job-status! [job status]
   (when job
-    (mon/fetch-and-modify :jobs
+    (mon/fetch-and-modify env/jobs-coll
                           {:_id (:_id job)}
                           {:$set {:status status}}
                           :upsert? false)))
@@ -74,7 +74,7 @@
   "next update time = last update time + period"
   [{:keys [_id next-update period]}]
   (mon/fetch-and-modify
-   :jobs
+   env/jobs-coll
    {:_id _id}
    ;; change skew characteristics here
    {:$set {:next-update (+ (if (= 0 next-update)
@@ -83,6 +83,12 @@
                            period)}}
    :upsert? false
    :return-new? true))
+
+(defn clear-expired-locks! []
+  (doseq [job (mon/fetch env/jobs-coll
+                         :where {:lock-expiry {:$lte (unix-ts)}})]
+    (env/log "Lock expired on " job ". Clearing.")
+    (unlock-job! job)))
 
 (defn with-next-job
   "Passes next job (if available) to `f`. Handles locking / unlocking
@@ -97,7 +103,6 @@
                  (swap! used-capacity-atom dec)
                  (set-next-update! job)
                  (unlock-job! job)))))))
-
 
 (defn execute-job
   "Connect to HTTP endpoint with connection and response
@@ -122,9 +127,9 @@
   (log-worker! worker-id @used-capacity-atom max-capacity)
   (with-next-job used-capacity-atom max-capacity
     (fn [{:keys [next-update endpoint period] :as job}]
-      (let [start (unix-ts)
-            start-lag (- start next-update)
-            status (execute-job job)
+      (let [start        (unix-ts)
+            start-lag    (- start next-update)
+            status       (execute-job job)
             request-time (- (unix-ts) start)]
         (log-job! worker-id
                   endpoint
@@ -150,6 +155,7 @@
     (reset! used-capacity-atom 0)
     (while true
       (run-loop! worker-id used-capacity-atom max-capacity)
+      (clear-expired-locks!)
       (Thread/sleep run-loop-sleep))))
 
 

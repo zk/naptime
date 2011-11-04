@@ -1,5 +1,5 @@
 (ns naptime.heroku.worker
-  (:use [naptime.heroku.env :only (env setup-mongo!)])
+  (:use [naptime.env :only (env setup-mongo!)])
   (:require [naptime.worker :as worker]
             [somnium.congomongo :as mon]))
 

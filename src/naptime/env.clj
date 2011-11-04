@@ -1,4 +1,4 @@
-(ns naptime.heroku.env
+(ns naptime.env
   (:require [clojure.string :as str]
             [somnium.congomongo :as mon]))
 
@@ -19,6 +19,12 @@
     (or val
         default)))
 
+(def lock-timeout (env :worker-lock-timeout 5000))
+
+(def jobs-coll :jobs)
+
+(def job-logs-coll :job-logs)
+
 (defn setup-mongo! [default-db default-host default-port & [default-user default-pass]]
   (mon/mongo! :db (env :mongo-db default-db)
               :host (env :mongo-host default-host)
@@ -35,3 +41,6 @@
     (mon/create-collection! :worker-logs :capped true :size (* 1024 1024 4))
     (catch Exception e
       (println "worker-logs collection already exists."))))
+
+(defn log [& args]
+  (println (apply str args)))
