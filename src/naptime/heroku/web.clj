@@ -2,7 +2,7 @@
   "Used by heroku to launch the web interface.  Also starts a worker
    run loop, because we might as well do some work in this process if
    it's running anyway."
-  (:use [naptime.heroku.env :only (env setup-mongo!)])
+  (:use [naptime.env :only (env setup-mongo!)])
   (:require [naptime.web :as web]
             [naptime.worker :as worker]
             [nsfw.server :as server]

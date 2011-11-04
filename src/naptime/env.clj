@@ -1,4 +1,4 @@
-(ns naptime.heroku.env
+(ns naptime.env
   (:require [clojure.string :as str]
             [somnium.congomongo :as mon]))
 
@@ -18,6 +18,12 @@
                 (get (system-env)))]
     (or val
         default)))
+
+(def lock-timeout (env :worker-lock-timeout 5000))
+
+(def jobs-coll :jobs)
+
+(def job-logs-coll :job-logs)
 
 (defn setup-mongo! [default-db default-host default-port & [default-user default-pass]]
   (mon/mongo! :db (env :mongo-db default-db)
