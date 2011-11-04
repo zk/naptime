@@ -27,9 +27,7 @@
    :upsert? false
    :return-new? true))
 
-(defn unlock-job!
-  "Unlocks a job."
-  [job]
+(defn unlock-job! [job]
   (when job
    (mon/fetch-and-modify
     env/jobs-coll
@@ -87,8 +85,10 @@
    :return-new? true))
 
 (defn clear-expired-locks! []
-  (->> (mon/fetch env/jobs-coll :where {:lock-expiry {:$lte (unix-ts)}})
-       (map unlock-job!)))
+  (doseq [job (mon/fetch env/jobs-coll
+                         :where {:lock-expiry {:$lte (unix-ts)}})]
+    (env/log "Lock expired on " job ". Clearing.")
+    (unlock-job! job)))
 
 (defn with-next-job
   "Passes next job (if available) to `f`. Handles locking / unlocking
@@ -137,8 +137,7 @@
                   start-lag
                   status
                   request-time)
-        (update-job-status! job status)
-        (clear-expired-locks!)))))
+        (update-job-status! job status)))))
 
 (defn run-join!
   "Continuously pull and run work. Options are:
@@ -156,6 +155,7 @@
     (reset! used-capacity-atom 0)
     (while true
       (run-loop! worker-id used-capacity-atom max-capacity)
+      (clear-expired-locks!)
       (Thread/sleep run-loop-sleep))))
 
 

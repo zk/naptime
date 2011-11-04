@@ -41,3 +41,6 @@
     (mon/create-collection! :worker-logs :capped true :size (* 1024 1024 4))
     (catch Exception e
       (println "worker-logs collection already exists."))))
+
+(defn log [& args]
+  (println (apply str args)))

@@ -7,5 +7,7 @@
   :dev-dependencies [[swank-clojure "1.4.0-SNAPSHOT"]
                      [lein-marginalia "0.6.1"]]
   :repositories {"sonatype"
-                 "http://oss.sonatype.org/content/repositories/releases"})
+                 "http://oss.sonatype.org/content/repositories/releases"}
+  :test-selectors {:default     :unit
+                   :integration :integration})
 
