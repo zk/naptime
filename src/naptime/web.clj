@@ -3,7 +3,8 @@
         [nsfw render middleware]
         ring.util.response
         [ring.middleware params keyword-params flash session])
-  (:require [net.cgrand.moustache :as mous]
+  (:require [naptime.env :as env]
+            [net.cgrand.moustache :as mous]
             [nsfw.server :as server]
             [somnium.congomongo :as mon]
             [hozumi.mongodb-session :as mongoss]
@@ -17,14 +18,14 @@
 ;;;;;;;;;;;;;;;;;
 
 (defn schedule! [endpoint period]
-  (mon/fetch-and-modify :jobs
+  (mon/fetch-and-modify env/jobs-coll
                         {:endpoint endpoint}
                         {:endpoint endpoint :period period :next-update 0 :locked false}
                         :upsert? true
                         :return-new? true))
 
 (defn unschedule! [endpoint]
-  (mon/destroy! :jobs {:endpoint endpoint}))
+  (mon/destroy! env/jobs-coll {:endpoint endpoint}))
 
 (defn worker-info []
   (let [worker-ids (mon/distinct-values :worker-logs "worker-id"
@@ -352,14 +353,14 @@
 (defn about [endpoint]
   (fn [req]
     (render about-tpl
-            (mon/fetch-one :jobs :where {:endpoint endpoint})
-            (mon/fetch :job-logs
+            (mon/fetch-one env/jobs-coll :where {:endpoint endpoint})
+            (mon/fetch env/job-logs-coll
                        :where {:endpoint endpoint}
                        :sort {:timestamp -1}
                        :limit 100))))
 
 (defn delete-all [req]
-  (mon/drop-coll! :jobs)
+  (mon/drop-coll! env/jobs-coll)
   (redirect "/"))
 
 
@@ -394,7 +395,7 @@
    wrap-keyword-params
    wrap-args
    [""] (fn [r]
-          (-> (response (index (mon/fetch :jobs)
+          (-> (response (index (mon/fetch env/jobs-coll)
                                (worker-info)))
               (content-type "text/html")
               (status 200)))
